@@ -13,6 +13,7 @@ func InitRoutes(s *Server) {
 
 	router.POST("/accounts", s.CreateAccount)
 	router.GET("/accounts/:account_id", s.GetAccount)
+	router.POST("/transactions", s.Transact)
 
 	router.Run(":8080")
 }

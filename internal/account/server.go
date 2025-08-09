@@ -1,9 +1,9 @@
 package account
 
 import (
-	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -54,14 +54,32 @@ type GetAccountResp struct {
 
 func (g *GetAccountResp) PopulateFrom(resp *GetAccountDTO) {
 	g.ID = resp.ID
-	g.Balance = resp.Balance
+	g.Balance = strconv.FormatFloat(resp.Balance, 'f', 2, 64)
+}
+
+type TransactionReq struct {
+	SourceAccountID      int64  `json:"source_account_id"`
+	DestinationAccountID int64  `json:"destination_account_id"`
+	Amount               string `json:"amount"`
+}
+
+func (r *TransactionReq) TransformToDTO() *TransactionReqDTO {
+	return &TransactionReqDTO{
+		SourceAccountID:      r.SourceAccountID,
+		DestinationAccountID: r.DestinationAccountID,
+		Amount:               r.Amount,
+	}
+}
+
+type TransactionResp struct {
+	Success string
 }
 
 func (s *Server) CreateAccount(c *gin.Context) {
 	var req CreateReq
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("failed to bin json. %s", err.Error())
+		log.Printf("failed to bind json. %s", err.Error())
 		c.Error(err)
 		return
 	}
@@ -86,13 +104,6 @@ func (s *Server) GetAccount(c *gin.Context) {
 	accID := c.Param("account_id")
 	accID = strings.TrimSpace(accID)
 
-	if len(accID) == 0 {
-		err := fmt.Errorf("account id should not be empty")
-		log.Print(err.Error())
-		c.Error(err)
-		return
-	}
-
 	dto, err := s.account.Get(c.Request.Context(), accID)
 	if err != nil {
 		log.Printf("failed to fetch resp: %d", err.Error())
@@ -103,4 +114,26 @@ func (s *Server) GetAccount(c *gin.Context) {
 	var resp GetAccountResp
 	resp.PopulateFrom(dto)
 	c.JSON(http.StatusOK, resp)
+}
+
+func (s *Server) Transact(c *gin.Context) {
+	var req TransactionReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("failed to bind json. %s", err.Error())
+		c.Error(err)
+		return
+	}
+
+	log.Printf("transaction request received: %+v", req)
+
+	dto := req.TransformToDTO()
+	if err := s.account.Transact(c.Request.Context(), dto); err != nil {
+		log.Printf("internal error: %s", err.Error())
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, &TransactionResp{
+		Success: "true",
+	})
 }

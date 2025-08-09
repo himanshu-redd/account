@@ -7,11 +7,14 @@ import (
 	"log"
 	"strconv"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 type Accounter interface {
 	Create(context.Context, *CreateReqDTO) error
 	Get(context.Context, string) (*GetAccountDTO, error)
+	Transact(context.Context, *TransactionReqDTO) error
 }
 
 type CreateReqDTO struct {
@@ -21,7 +24,7 @@ type CreateReqDTO struct {
 
 type GetAccountDTO struct {
 	ID      int64
-	Balance string
+	Balance float64
 }
 
 type AccountService struct {
@@ -37,26 +40,35 @@ func NewAccountService(repo Repoer) *AccountService {
 func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 	log.Printf("req: %+v", req)
 
-	err := req.validateCreateReq()
+	err := req.validate()
 	if err != nil {
 		return err
 	}
 
-	if err := s.AccountRepo.Create(ctx, req); err != nil {
+	acc, err := s.AccountRepo.Get(ctx, req.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound){
+		return err
+	}
+
+	if acc != nil {
+		return fmt.Errorf("account already present")
+	}
+
+	if err := s.AccountRepo.Save(ctx, req); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *CreateReqDTO) validateCreateReq() error {
+func (r *CreateReqDTO) validate() error {
 	var errs error
 
 	if r.ID == 0 {
 		errs = errors.Join(errs, fmt.Errorf("request id should not be empty"))
 	}
 	if len(strings.TrimSpace(r.InitialBalance)) == 0 {
-		errs = errors.Join(errs, fmt.Errorf("initla balance should not be empty"))
+		errs = errors.Join(errs, fmt.Errorf("initial balance should not be empty"))
 	} else {
 
 		balance, err := strconv.ParseFloat(r.InitialBalance, 64)
@@ -72,7 +84,13 @@ func (r *CreateReqDTO) validateCreateReq() error {
 }
 
 func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccountDTO, error) {
-	log.Printf("Request received for account id: %s", accountID)
+	log.Printf("fetch account details request received for account id: %s", accountID)
+
+	if len(accountID) == 0 {
+		err := fmt.Errorf("account id should not be empty")
+		log.Print(err.Error())
+		return nil, err
+	}
 
 	accID, err := strconv.ParseInt(accountID, 10, 64)
 	if err != nil {
@@ -85,4 +103,72 @@ func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccount
 	}
 
 	return accDetails, err
+}
+
+type TransactionReqDTO struct {
+	SourceAccountID      int64
+	DestinationAccountID int64
+	Amount               string
+}
+
+func (r *TransactionReqDTO) validate() error {
+	var errs error
+
+	if r.SourceAccountID == 0 {
+		errs = errors.Join(errs, fmt.Errorf("source account should not be empty"))
+	}
+	if r.DestinationAccountID == 0 {
+		errs = errors.Join(errs, fmt.Errorf("destination account should not be empty"))
+	}
+
+	amount, err := strconv.ParseFloat(r.Amount, 64)
+	if err != nil {
+		errs = errors.Join(errs, err)
+	} else if amount <= 0 {
+		errs = errors.Join(errs, fmt.Errorf("deduction amount should be positive"))
+	}
+
+	return errs
+}
+
+func (s *AccountService) Transact(ctx context.Context, req *TransactionReqDTO) error {
+	if err := req.validate(); err != nil {
+		return err
+	}
+
+	sourceAcc, err := s.AccountRepo.Get(ctx, req.SourceAccountID)
+	if err != nil {
+		return err
+	}
+
+	destinationAcc, err := s.AccountRepo.Get(ctx, req.DestinationAccountID)
+	if err != nil {
+		return err
+	}
+
+	amount, err := strconv.ParseFloat(req.Amount, 64)
+	if err != nil {
+		return err
+	}
+
+	if sourceAcc.Balance < amount {
+		err := fmt.Errorf("insufficient balance")
+		fmt.Printf("%s", err.Error())
+		return err
+	}
+
+	sourceAcc.Balance -= amount
+	destinationAcc.Balance += amount
+
+	s.AccountRepo.Save(ctx, &CreateReqDTO{
+		ID:             sourceAcc.ID,
+		InitialBalance: strconv.FormatFloat(sourceAcc.Balance, 'f', 2, 64),
+	})
+
+	s.AccountRepo.Save(ctx, &CreateReqDTO{
+		ID:             destinationAcc.ID,
+		InitialBalance: strconv.FormatFloat(destinationAcc.Balance, 'f', 2, 64),
+	})
+
+	return nil
 }
