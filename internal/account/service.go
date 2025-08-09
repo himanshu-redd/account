@@ -18,12 +18,12 @@ type Accounter interface {
 }
 
 type CreateReqDTO struct {
-	ID      int64
+	ID      uint
 	Balance decimal.Decimal
 }
 
 type GetAccountDTO struct {
-	ID      int64
+	ID      uint
 	Balance decimal.Decimal
 }
 
@@ -45,18 +45,8 @@ func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 		return err
 	}
 
-	acc, err := s.AccountRepo.Get(ctx, req.ID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-	log.Printf("creating account to db")
-
-	if acc != nil {
-		return fmt.Errorf("account already present")
-	}
-
-	if err := s.AccountRepo.Save(ctx, Account{
-		ID:      req.ID,
+	if err := s.AccountRepo.Create(ctx, Account{
+		Model:   gorm.Model{ID: req.ID},
 		Balance: req.Balance,
 	}); err != nil {
 		return err
@@ -88,12 +78,12 @@ func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccount
 		return nil, err
 	}
 
-	accID, err := strconv.ParseInt(accountID, 10, 64)
+	accID, err := strconv.ParseUint(accountID, 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	accDetails, err := s.AccountRepo.Get(ctx, accID)
+	accDetails, err := s.AccountRepo.Get(ctx, uint(accID))
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +95,8 @@ func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccount
 }
 
 type TransactionReqDTO struct {
-	SourceAccountID      int64
-	DestinationAccountID int64
+	SourceAccountID      uint
+	DestinationAccountID uint
 	Amount               decimal.Decimal
 }
 
@@ -131,27 +121,9 @@ func (s *AccountService) Transact(ctx context.Context, req *TransactionReqDTO) e
 		return err
 	}
 
-	sourceAcc, err := s.AccountRepo.Get(ctx, req.SourceAccountID)
-	if err != nil {
+	if err := s.AccountRepo.Transfer(ctx, req.SourceAccountID, req.DestinationAccountID, req.Amount); err != nil {
 		return err
 	}
-
-	destinationAcc, err := s.AccountRepo.Get(ctx, req.DestinationAccountID)
-	if err != nil {
-		return err
-	}
-
-	if sourceAcc.Balance.LessThan(req.Amount) {
-		err := fmt.Errorf("insufficient balance")
-		fmt.Printf("%s", err.Error())
-		return err
-	}
-
-	sourceAcc.Balance = sourceAcc.Balance.Sub(req.Amount)
-	destinationAcc.Balance = destinationAcc.Balance.Add(req.Amount)
-
-	s.AccountRepo.Save(ctx, *sourceAcc)
-	s.AccountRepo.Save(ctx, *destinationAcc)
 
 	return nil
 }

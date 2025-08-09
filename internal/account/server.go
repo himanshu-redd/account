@@ -34,7 +34,7 @@ func NewServer(opt ...Opt) *Server {
 }
 
 type CreateReq struct {
-	ID             int64  `json:"account_id"`
+	ID             uint   `json:"account_id"`
 	InitialBalance string `json:"initial_balance"`
 }
 
@@ -54,7 +54,7 @@ func (r CreateReq) transfomToDTO() (*CreateReqDTO, error) {
 }
 
 type GetAccountResp struct {
-	ID      int64  `json:"id"`
+	ID      uint   `json:"id"`
 	Balance string `json:"balance"`
 }
 
@@ -64,8 +64,8 @@ func (g *GetAccountResp) PopulateFrom(resp *GetAccountDTO) {
 }
 
 type TransactionReq struct {
-	SourceAccountID      int64  `json:"source_account_id"`
-	DestinationAccountID int64  `json:"destination_account_id"`
+	SourceAccountID      uint   `json:"source_account_id"`
+	DestinationAccountID uint   `json:"destination_account_id"`
 	Amount               string `json:"amount"`
 }
 
