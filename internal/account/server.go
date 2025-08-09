@@ -1,6 +1,7 @@
 package account
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -104,6 +105,8 @@ func (s *Server) GetAccount(c *gin.Context) {
 	accID := c.Param("account_id")
 	accID = strings.TrimSpace(accID)
 
+	fmt.Printf("get account request received")
+
 	dto, err := s.account.Get(c.Request.Context(), accID)
 	if err != nil {
 		log.Printf("failed to fetch resp: %d", err.Error())
@@ -128,7 +131,7 @@ func (s *Server) Transact(c *gin.Context) {
 
 	dto := req.TransformToDTO()
 	if err := s.account.Transact(c.Request.Context(), dto); err != nil {
-		log.Printf("internal error: %s", err.Error())
+		log.Printf("transaction failed: %s", err.Error())
 		c.Error(err)
 		return
 	}
