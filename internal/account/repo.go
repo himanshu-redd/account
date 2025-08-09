@@ -10,6 +10,7 @@ import (
 
 type Repoer interface {
 	Create(context.Context, *CreateReqDTO) error
+	Get(context.Context, int64) (*GetAccountDTO, error)
 }
 
 type AccountRepo struct {
@@ -37,6 +38,13 @@ func (a *Account) populateFrom(req *CreateReqDTO) error {
 	return nil
 }
 
+func (a *Account) Transform() *GetAccountDTO {
+	return &GetAccountDTO{
+		ID:      a.ID,
+		Balance: strconv.FormatFloat(a.Balance, 'f', 2, 64),
+	}
+}
+
 func (r *AccountRepo) Create(ctx context.Context, req *CreateReqDTO) error {
 	var acc Account
 
@@ -52,4 +60,17 @@ func (r *AccountRepo) Create(ctx context.Context, req *CreateReqDTO) error {
 	}
 
 	return nil
+}
+
+func (r *AccountRepo) Get(ctx context.Context, accID int64) (*GetAccountDTO, error) {
+	var acc Account
+
+	dbResp := r.DB.First(&acc, accID)
+	if dbResp.Error != nil {
+		log.Printf("error occurred while fetching account:  %s", dbResp.Error.Error())
+		return nil, dbResp.Error
+	}
+
+	dto := acc.Transform()
+	return dto, nil
 }

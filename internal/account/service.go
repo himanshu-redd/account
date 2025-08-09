@@ -11,11 +11,17 @@ import (
 
 type Accounter interface {
 	Create(context.Context, *CreateReqDTO) error
+	Get(context.Context, string) (*GetAccountDTO, error)
 }
 
 type CreateReqDTO struct {
 	ID             int64
 	InitialBalance string
+}
+
+type GetAccountDTO struct {
+	ID      int64
+	Balance string
 }
 
 type AccountService struct {
@@ -31,7 +37,7 @@ func NewAccountService(repo Repoer) *AccountService {
 func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 	log.Printf("req: %+v", req)
 
-	err := req.validateReq()
+	err := req.validateCreateReq()
 	if err != nil {
 		return err
 	}
@@ -43,7 +49,7 @@ func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 	return nil
 }
 
-func (r *CreateReqDTO) validateReq() error {
+func (r *CreateReqDTO) validateCreateReq() error {
 	var errs error
 
 	if r.ID == 0 {
@@ -63,4 +69,20 @@ func (r *CreateReqDTO) validateReq() error {
 	}
 
 	return errs
+}
+
+func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccountDTO, error) {
+	log.Printf("Request received for account id: %s", accountID)
+
+	accID, err := strconv.ParseInt(accountID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	accDetails, err := s.AccountRepo.Get(ctx, accID)
+	if err != nil {
+		return nil, err
+	}
+
+	return accDetails, err
 }

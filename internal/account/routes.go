@@ -12,6 +12,7 @@ func InitRoutes(s *Server) {
 	router.Use(ErrorMiddleware())
 
 	router.POST("/accounts", s.CreateAccount)
+	router.GET("/accounts/:account_id", s.GetAccount)
 
 	router.Run(":8080")
 }
