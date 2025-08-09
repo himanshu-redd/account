@@ -9,7 +9,7 @@ import (
 )
 
 type Repoer interface {
-	Create(context.Context, *CreateReqDTO) error
+	Save(context.Context, *CreateReqDTO) error
 	Get(context.Context, int64) (*GetAccountDTO, error)
 }
 
@@ -24,6 +24,7 @@ func NewAccountRepo(db *gorm.DB) *AccountRepo {
 }
 
 type Account struct {
+	gorm.Model
 	ID      int64   `gorm:"column:id;primaryKey"`
 	Balance float64 `gorm:"column:balance"`
 }
@@ -41,11 +42,11 @@ func (a *Account) populateFrom(req *CreateReqDTO) error {
 func (a *Account) Transform() *GetAccountDTO {
 	return &GetAccountDTO{
 		ID:      a.ID,
-		Balance: strconv.FormatFloat(a.Balance, 'f', 2, 64),
+		Balance: a.Balance,
 	}
 }
 
-func (r *AccountRepo) Create(ctx context.Context, req *CreateReqDTO) error {
+func (r *AccountRepo) Save(ctx context.Context, req *CreateReqDTO) error {
 	var acc Account
 
 	if err := acc.populateFrom(req); err != nil {
@@ -53,7 +54,7 @@ func (r *AccountRepo) Create(ctx context.Context, req *CreateReqDTO) error {
 	}
 	log.Printf("account model: %+v", acc)
 
-	dbResp := r.DB.Create(&acc)
+	dbResp := r.DB.Save(&acc)
 	if dbResp.Error != nil {
 		log.Printf("error occurred while creating account: %s", dbResp.Error.Error())
 		return dbResp.Error
