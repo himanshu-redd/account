@@ -45,7 +45,7 @@ func (r *AccountRepo) Create(ctx context.Context, req *CreateReqDTO) error {
 	}
 	log.Printf("account model: %+v", acc)
 
-	dbResp := r.DB.Create(acc)
+	dbResp := r.DB.Create(&acc)
 	if dbResp.Error != nil {
 		log.Printf("error occurred while creating account: %s", dbResp.Error.Error())
 		return dbResp.Error
