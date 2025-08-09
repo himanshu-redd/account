@@ -4,12 +4,13 @@ import (
 	"context"
 	"log"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
 type Repoer interface {
-	Save(context.Context, *CreateReqDTO) error
-	Get(context.Context, int64) (*GetAccountDTO, error)
+	Save(context.Context, Account) error
+	Get(context.Context, int64) (*Account, error)
 }
 
 type AccountRepo struct {
@@ -23,13 +24,8 @@ func NewAccountRepo(db *gorm.DB) *AccountRepo {
 }
 
 type Account struct {
-	ID      int64   `gorm:"column:id;primaryKey"`
-	Balance float64 `gorm:"column:balance"`
-}
-
-func (a *Account) populateFrom(req *CreateReqDTO) {
-	a.ID = req.ID
-	a.Balance = req.InitialBalance
+	ID      int64           `gorm:"column:id;primaryKey"`
+	Balance decimal.Decimal `gorm:"column:balance"`
 }
 
 func (a *Account) Transform() *GetAccountDTO {
@@ -39,13 +35,8 @@ func (a *Account) Transform() *GetAccountDTO {
 	}
 }
 
-func (r *AccountRepo) Save(ctx context.Context, req *CreateReqDTO) error {
-	var acc Account
-
-	acc.populateFrom(req)
-	log.Printf("account model: %+v", acc)
-
-	dbResp := r.DB.Save(&acc)
+func (r *AccountRepo) Save(ctx context.Context, account Account) error {
+	dbResp := r.DB.Save(&account)
 	if dbResp.Error != nil {
 		log.Printf("error occurred while creating account: %s", dbResp.Error.Error())
 		return dbResp.Error
@@ -54,7 +45,7 @@ func (r *AccountRepo) Save(ctx context.Context, req *CreateReqDTO) error {
 	return nil
 }
 
-func (r *AccountRepo) Get(ctx context.Context, accID int64) (*GetAccountDTO, error) {
+func (r *AccountRepo) Get(ctx context.Context, accID int64) (*Account, error) {
 	var acc Account
 
 	dbResp := r.DB.First(&acc, accID)
@@ -63,6 +54,5 @@ func (r *AccountRepo) Get(ctx context.Context, accID int64) (*GetAccountDTO, err
 		return nil, dbResp.Error
 	}
 
-	dto := acc.Transform()
-	return dto, nil
+	return &acc, nil
 }

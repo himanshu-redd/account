@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -33,43 +34,52 @@ func NewServer(opt ...Opt) *Server {
 }
 
 type CreateReq struct {
-	ID             int64   `json:"account_id"`
-	InitialBalance float64 `json:"initial_balance"`
+	ID             int64  `json:"account_id"`
+	InitialBalance string `json:"initial_balance"`
 }
 
 type CreateResp struct {
 	Success string `json:"success"`
 }
 
-func (r CreateReq) transfomToDTO() *CreateReqDTO {
-	return &CreateReqDTO{
-		ID:             r.ID,
-		InitialBalance: r.InitialBalance,
+func (r CreateReq) transfomToDTO() (*CreateReqDTO, error) {
+	balance, err := decimal.NewFromString(r.InitialBalance)
+	if err != nil {
+		return nil, err
 	}
+	return &CreateReqDTO{
+		ID:      r.ID,
+		Balance: balance,
+	}, nil
 }
 
 type GetAccountResp struct {
-	ID      int64   `json:"id"`
-	Balance float64 `json:"balance"`
+	ID      int64  `json:"id"`
+	Balance string `json:"balance"`
 }
 
 func (g *GetAccountResp) PopulateFrom(resp *GetAccountDTO) {
 	g.ID = resp.ID
-	g.Balance = resp.Balance
+	g.Balance = resp.Balance.String()
 }
 
 type TransactionReq struct {
-	SourceAccountID      int64   `json:"source_account_id"`
-	DestinationAccountID int64   `json:"destination_account_id"`
-	Amount               float64 `json:"amount"`
+	SourceAccountID      int64  `json:"source_account_id"`
+	DestinationAccountID int64  `json:"destination_account_id"`
+	Amount               string `json:"amount"`
 }
 
-func (r *TransactionReq) TransformToDTO() *TransactionReqDTO {
+func (r *TransactionReq) TransformToDTO() (*TransactionReqDTO, error) {
+	amount, err := decimal.NewFromString(r.Amount)
+	if err != nil {
+		return nil, err
+	}
+
 	return &TransactionReqDTO{
 		SourceAccountID:      r.SourceAccountID,
 		DestinationAccountID: r.DestinationAccountID,
-		Amount:               r.Amount,
-	}
+		Amount:               amount,
+	}, nil
 }
 
 type TransactionResp struct {
@@ -87,9 +97,14 @@ func (s *Server) CreateAccount(c *gin.Context) {
 
 	log.Printf("create account request received for ID: %d", req.ID)
 
-	dto := req.transfomToDTO()
+	dto, err := req.transfomToDTO()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("account creation failed: %s", err.Error())
+		return
+	}
 
-	err := s.account.Create(c.Request.Context(), dto)
+	err = s.account.Create(c.Request.Context(), dto)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create account"})
 		log.Printf("account creation failed: %s", err.Error())
@@ -103,7 +118,7 @@ func (s *Server) GetAccount(c *gin.Context) {
 	accID := c.Param("account_id")
 	accID = strings.TrimSpace(accID)
 
-	log.Printf("get account request received for ID: %d", accID)
+	log.Printf("get account request received for ID: %s", accID)
 
 	dto, err := s.account.Get(c.Request.Context(), accID)
 	if err != nil {
@@ -131,7 +146,13 @@ func (s *Server) Transact(c *gin.Context) {
 
 	log.Printf("transaction request received: %+v", req)
 
-	dto := req.TransformToDTO()
+	dto, err := req.TransformToDTO()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("failed to transform to DTO: %s", err.Error())
+		return
+	}
+
 	if err := s.account.Transact(c.Request.Context(), dto); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
 		log.Printf("transaction failed: %s", err.Error())

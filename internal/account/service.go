@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -17,13 +18,13 @@ type Accounter interface {
 }
 
 type CreateReqDTO struct {
-	ID             int64
-	InitialBalance float64
+	ID      int64
+	Balance decimal.Decimal
 }
 
 type GetAccountDTO struct {
 	ID      int64
-	Balance float64
+	Balance decimal.Decimal
 }
 
 type AccountService struct {
@@ -48,12 +49,16 @@ func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
+	log.Printf("creating account to db")
 
 	if acc != nil {
 		return fmt.Errorf("account already present")
 	}
 
-	if err := s.AccountRepo.Save(ctx, req); err != nil {
+	if err := s.AccountRepo.Save(ctx, Account{
+		ID:      req.ID,
+		Balance: req.Balance,
+	}); err != nil {
 		return err
 	}
 
@@ -67,7 +72,7 @@ func (r *CreateReqDTO) validate() error {
 		errs = errors.Join(errs, fmt.Errorf("request id should not be empty"))
 	}
 
-	if r.InitialBalance < 0 {
+	if r.Balance.LessThan(decimal.Zero) {
 		errs = errors.Join(errs, fmt.Errorf("invalid initial balance"))
 	}
 
@@ -93,13 +98,16 @@ func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccount
 		return nil, err
 	}
 
-	return accDetails, err
+	return &GetAccountDTO{
+		ID:      accDetails.ID,
+		Balance: accDetails.Balance,
+	}, nil
 }
 
 type TransactionReqDTO struct {
 	SourceAccountID      int64
 	DestinationAccountID int64
-	Amount               float64
+	Amount               decimal.Decimal
 }
 
 func (r *TransactionReqDTO) validate() error {
@@ -111,7 +119,7 @@ func (r *TransactionReqDTO) validate() error {
 	if r.DestinationAccountID == 0 {
 		errs = errors.Join(errs, fmt.Errorf("destination account should not be empty"))
 	}
-	if r.Amount <= 0 {
+	if r.Amount.LessThan(decimal.Zero) {
 		errs = errors.Join(errs, fmt.Errorf("deduction amount should be positive"))
 	}
 
@@ -133,24 +141,17 @@ func (s *AccountService) Transact(ctx context.Context, req *TransactionReqDTO) e
 		return err
 	}
 
-	if sourceAcc.Balance < req.Amount {
+	if sourceAcc.Balance.LessThan(req.Amount) {
 		err := fmt.Errorf("insufficient balance")
 		fmt.Printf("%s", err.Error())
 		return err
 	}
 
-	sourceAcc.Balance -= req.Amount
-	destinationAcc.Balance += req.Amount
+	sourceAcc.Balance = sourceAcc.Balance.Sub(req.Amount)
+	destinationAcc.Balance = destinationAcc.Balance.Add(req.Amount)
 
-	s.AccountRepo.Save(ctx, &CreateReqDTO{
-		ID:             sourceAcc.ID,
-		InitialBalance: sourceAcc.Balance,
-	})
-
-	s.AccountRepo.Save(ctx, &CreateReqDTO{
-		ID:             destinationAcc.ID,
-		InitialBalance: destinationAcc.Balance,
-	})
+	s.AccountRepo.Save(ctx, *sourceAcc)
+	s.AccountRepo.Save(ctx, *destinationAcc)
 
 	return nil
 }
