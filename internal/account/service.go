@@ -99,7 +99,7 @@ func (s *AccountService) Get(ctx context.Context, accountID string) (*GetAccount
 type TransactionReqDTO struct {
 	SourceAccountID      int64
 	DestinationAccountID int64
-	Amount               string
+	Amount               float64
 }
 
 func (r *TransactionReqDTO) validate() error {
@@ -111,11 +111,7 @@ func (r *TransactionReqDTO) validate() error {
 	if r.DestinationAccountID == 0 {
 		errs = errors.Join(errs, fmt.Errorf("destination account should not be empty"))
 	}
-
-	amount, err := strconv.ParseFloat(r.Amount, 64)
-	if err != nil {
-		errs = errors.Join(errs, err)
-	} else if amount <= 0 {
+	if r.Amount <= 0 {
 		errs = errors.Join(errs, fmt.Errorf("deduction amount should be positive"))
 	}
 
@@ -137,19 +133,14 @@ func (s *AccountService) Transact(ctx context.Context, req *TransactionReqDTO) e
 		return err
 	}
 
-	amount, err := strconv.ParseFloat(req.Amount, 64)
-	if err != nil {
-		return err
-	}
-
-	if sourceAcc.Balance < amount {
+	if sourceAcc.Balance < req.Amount {
 		err := fmt.Errorf("insufficient balance")
 		fmt.Printf("%s", err.Error())
 		return err
 	}
 
-	sourceAcc.Balance -= amount
-	destinationAcc.Balance += amount
+	sourceAcc.Balance -= req.Amount
+	destinationAcc.Balance += req.Amount
 
 	s.AccountRepo.Save(ctx, &CreateReqDTO{
 		ID:             sourceAcc.ID,

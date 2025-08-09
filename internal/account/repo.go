@@ -23,7 +23,6 @@ func NewAccountRepo(db *gorm.DB) *AccountRepo {
 }
 
 type Account struct {
-	gorm.Model
 	ID      int64   `gorm:"column:id;primaryKey"`
 	Balance float64 `gorm:"column:balance"`
 }
