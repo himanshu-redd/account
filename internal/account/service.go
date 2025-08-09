@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 
 	"gorm.io/gorm"
 )
@@ -19,7 +18,7 @@ type Accounter interface {
 
 type CreateReqDTO struct {
 	ID             int64
-	InitialBalance string
+	InitialBalance float64
 }
 
 type GetAccountDTO struct {
@@ -46,7 +45,7 @@ func (s *AccountService) Create(ctx context.Context, req *CreateReqDTO) error {
 	}
 
 	acc, err := s.AccountRepo.Get(ctx, req.ID)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound){
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 
@@ -67,17 +66,9 @@ func (r *CreateReqDTO) validate() error {
 	if r.ID == 0 {
 		errs = errors.Join(errs, fmt.Errorf("request id should not be empty"))
 	}
-	if len(strings.TrimSpace(r.InitialBalance)) == 0 {
-		errs = errors.Join(errs, fmt.Errorf("initial balance should not be empty"))
-	} else {
 
-		balance, err := strconv.ParseFloat(r.InitialBalance, 64)
-
-		if err != nil {
-			errs = errors.Join(errs, err)
-		} else if balance < 0 {
-			errs = errors.Join(err, fmt.Errorf("invalid initial balance"))
-		}
+	if r.InitialBalance < 0 {
+		errs = errors.Join(errs, fmt.Errorf("invalid initial balance"))
 	}
 
 	return errs
@@ -162,12 +153,12 @@ func (s *AccountService) Transact(ctx context.Context, req *TransactionReqDTO) e
 
 	s.AccountRepo.Save(ctx, &CreateReqDTO{
 		ID:             sourceAcc.ID,
-		InitialBalance: strconv.FormatFloat(sourceAcc.Balance, 'f', 2, 64),
+		InitialBalance: sourceAcc.Balance,
 	})
 
 	s.AccountRepo.Save(ctx, &CreateReqDTO{
 		ID:             destinationAcc.ID,
-		InitialBalance: strconv.FormatFloat(destinationAcc.Balance, 'f', 2, 64),
+		InitialBalance: destinationAcc.Balance,
 	})
 
 	return nil

@@ -34,7 +34,7 @@ func NewServer(opt ...Opt) *Server {
 
 type CreateReq struct {
 	ID             int64  `json:"account_id"`
-	InitialBalance string `json:"initial_balance"`
+	InitialBalance float64 `json:"initial_balance"`
 }
 
 type CreateResp struct {
@@ -80,25 +80,23 @@ func (s *Server) CreateAccount(c *gin.Context) {
 	var req CreateReq
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("failed to bind json. %s", err.Error())
-		c.Error(err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		log.Printf("failed to bind json: %s", err.Error())
 		return
 	}
 
-	log.Printf("create request received")
+	log.Printf("create account request received for ID: %d", req.ID)
 
 	dto := req.transfomToDTO()
 
 	err := s.account.Create(c.Request.Context(), dto)
 	if err != nil {
-		log.Printf("account creation failed. %s", err.Error())
-		c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create account"})
+		log.Printf("account creation failed: %s", err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, CreateResp{
-		Success: "true",
-	})
+	c.Status(http.StatusCreated)
 }
 
 func (s *Server) GetAccount(c *gin.Context) {

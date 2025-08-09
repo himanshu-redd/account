@@ -3,7 +3,6 @@ package account
 import (
 	"context"
 	"log"
-	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -29,14 +28,9 @@ type Account struct {
 	Balance float64 `gorm:"column:balance"`
 }
 
-func (a *Account) populateFrom(req *CreateReqDTO) error {
+func (a *Account) populateFrom(req *CreateReqDTO) {
 	a.ID = req.ID
-	var err error
-	a.Balance, err = strconv.ParseFloat(req.InitialBalance, 64)
-	if err != nil {
-		return err
-	}
-	return nil
+	a.Balance = req.InitialBalance
 }
 
 func (a *Account) Transform() *GetAccountDTO {
@@ -49,9 +43,7 @@ func (a *Account) Transform() *GetAccountDTO {
 func (r *AccountRepo) Save(ctx context.Context, req *CreateReqDTO) error {
 	var acc Account
 
-	if err := acc.populateFrom(req); err != nil {
-		return err
-	}
+	acc.populateFrom(req)
 	log.Printf("account model: %+v", acc)
 
 	dbResp := r.DB.Save(&acc)
