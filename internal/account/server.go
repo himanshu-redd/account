@@ -122,7 +122,7 @@ func (s *Server) GetAccount(c *gin.Context) {
 
 	dto, err := s.account.Get(c.Request.Context(), accID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) { // Example of a specific error message
+		if errors.Is(err, gorm.ErrRecordNotFound) { 
 			c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
 			return
 		}
