@@ -48,5 +48,10 @@
     ```
 ## Assumption
 
-1. The secrets should not be kept inside the codebase in production. I've added the db secrets just for the sake of assignment. 
-2. There should be graceful shutdown implementation of the HTTP server and DB. It can be added later.
+1.  **Secrets Management**: In a production environment, secrets (e.g., database credentials) should never be stored directly in the codebase. They are included here solely for the purposes of this assignment.
+
+2. **Graceful Shutdown**: The HTTP server and database connections should implement a graceful shutdown mechanism to ensure ongoing requests complete without abrupt termination. This can be added as an enhancement in the future.
+
+3. **Configuration Management**: For production-grade configuration handling, libraries like viper can be leveraged to manage environment-specific settings effectively.
+
+4. **Structured Logging** : Appropriate log levels should be implemented (e.g., debug, info, warn, error) to ensure clear, structured, and maintainable logging.
