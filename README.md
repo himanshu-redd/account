@@ -46,3 +46,6 @@
         "amount" : "1010924.7656"
     }'
     ```
+## Assumption
+
+1. The secrets should not be kept inside the codebase in production. I've added the db secrets just for the sake of assignment. 
