@@ -109,7 +109,7 @@ func (r *TransactionReqDTO) validate() error {
 	if r.DestinationAccountID == 0 {
 		errs = errors.Join(errs, fmt.Errorf("destination account should not be empty"))
 	}
-	if r.Amount.LessThan(decimal.Zero) {
+	if r.Amount.LessThan(decimal.Zero) || r.Amount.Equal(decimal.Zero) {
 		errs = errors.Join(errs, fmt.Errorf("deduction amount should be positive"))
 	}
 
