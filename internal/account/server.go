@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -122,6 +123,11 @@ func (s *Server) GetAccount(c *gin.Context) {
 
 	dto, err := s.account.Get(c.Request.Context(), accID)
 	if err != nil {
+		var numErr *strconv.NumError
+		if errors.As(err, &numErr) && numErr.Func == "ParseUint" {
+			c.JSON(http.StatusBadRequest, gin.H{"error" : "account id invalid"})
+			return
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) { 
 			c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
 			return
